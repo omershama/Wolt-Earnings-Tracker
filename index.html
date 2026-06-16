@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Wolt Earnings Tracker</title>
+<style>
+  /* ---------- Basic page styling ---------- */
+  :root {
+    --bg: #f4f6f8;
+    --card: #ffffff;
+    --ink: #1f2733;
+    --muted: #6b7a8d;
+    --accent: #00a7c4;      /* Wolt-ish teal/blue */
+    --accent-dark: #007e96;
+    --tip: #f0a500;         /* color for tips */
+    --line: #e3e9ef;
+    --danger: #d9534f;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: "Segoe UI", system-ui, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    line-height: 1.5;
+    padding: 24px 16px 60px;
+  }
+  .wrap { max-width: 860px; margin: 0 auto; }
+
+  header h1 { font-size: 26px; }
+  header p { color: var(--muted); margin-top: 4px; }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 20px;
+    margin-top: 20px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+  }
+  h2 { font-size: 16px; margin-bottom: 14px; color: var(--accent-dark); }
+
+  /* ---------- The input form ---------- */
+  .form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 12px;
+  }
+  label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+  input {
+    width: 100%;
+    padding: 9px 10px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    font-size: 14px;
+  }
+  input:focus { outline: none; border-color: var(--accent); }
+  button {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 10px 18px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    margin-top: 14px;
+  }
+  button:hover { background: var(--accent-dark); }
+
+  /* ---------- Summary stat cards ---------- */
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 12px;
+  }
+  .stat {
+    background: var(--bg);
+    border-radius: 10px;
+    padding: 14px;
+    text-align: center;
+  }
+  .stat .value { font-size: 22px; font-weight: 700; color: var(--accent-dark); }
+  .stat .label { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+  /* ---------- Chart (simple CSS bars) ---------- */
+  .chart { display: flex; align-items: flex-end; gap: 8px; height: 160px; padding-top: 10px; }
+  .bar-col { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; }
+  .bar { width: 70%; background: var(--accent); border-radius: 4px 4px 0 0; min-height: 2px; }
+  .bar .tip-part { width: 100%; background: var(--tip); border-radius: 4px 4px 0 0; }
+  .bar-label { font-size: 10px; color: var(--muted); margin-top: 4px; white-space: nowrap; }
+  .legend { font-size: 12px; color: var(--muted); margin-top: 10px; }
+  .legend span { display: inline-block; width: 11px; height: 11px; border-radius: 3px; vertical-align: middle; margin: 0 4px 0 12px; }
+
+  /* ---------- The data table ---------- */
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: left; padding: 9px 8px; border-bottom: 1px solid var(--line); }
+  th { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
+  td.num, th.num { text-align: right; }
+  .del-btn {
+    background: none; color: var(--danger); border: none;
+    cursor: pointer; font-size: 13px; padding: 2px 6px; margin: 0;
+  }
+  .empty { color: var(--muted); text-align: center; padding: 20px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <h1>🛵 Wolt Earnings Tracker</h1>
+    <p>Log each shift, and the app tracks your deliveries, tips, and average pay over time.</p>
+  </header>
+
+  <!-- ============ ADD ENTRY FORM ============ -->
+  <div class="card">
+    <h2>Add a shift</h2>
+    <div class="form-grid">
+      <div>
+        <label for="date">Date</label>
+        <input type="date" id="date" />
+      </div>
+      <div>
+        <label for="deliveries">Deliveries</label>
+        <input type="number" id="deliveries" min="0" placeholder="0" />
+      </div>
+      <div>
+        <label for="hours">Hours worked</label>
+        <input type="number" id="hours" min="0" step="0.1" placeholder="0" />
+      </div>
+      <div>
+        <label for="earnings">Base earnings (₪)</label>
+        <input type="number" id="earnings" min="0" step="0.01" placeholder="0" />
+      </div>
+      <div>
+        <label for="tips">Tips (₪)</label>
+        <input type="number" id="tips" min="0" step="0.01" placeholder="0" />
+      </div>
+    </div>
+    <button id="addBtn">Add shift</button>
+  </div>
+
+  <!-- ============ SUMMARY STATS ============ -->
+  <div class="card">
+    <h2>Your totals</h2>
+    <div class="stats" id="stats"></div>
+  </div>
+
+  <!-- ============ CHART ============ -->
+  <div class="card">
+    <h2>Earnings per shift</h2>
+    <div class="chart" id="chart"></div>
+    <div class="legend">
+      <span style="background: var(--accent)"></span>Base
+      <span style="background: var(--tip)"></span>Tips
+    </div>
+  </div>
+
+  <!-- ============ DATA TABLE ============ -->
+  <div class="card">
+    <h2>All shifts</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th class="num">Deliveries</th>
+          <th class="num">Hours</th>
+          <th class="num">Base ₪</th>
+          <th class="num">Tips ₪</th>
+          <th class="num">Total ₪</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="tableBody"></tbody>
+    </table>
+  </div>
+
+</div>
+
+<script>
+/* =====================================================================
+   WOLT EARNINGS TRACKER  -  vanilla JavaScript
+   Data is saved in the browser using localStorage, so your shifts
+   are still here the next time you open the page.
+   ===================================================================== */
+
+// The key we use to store our data inside the browser.
+const STORAGE_KEY = "wolt_shifts";
+
+// Load existing shifts from localStorage, or start with an empty list.
+// localStorage only stores text, so we parse it back into an array.
+let shifts = JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
+
+// Grab the elements we need from the page once, up front.
+const dateInput      = document.getElementById("date");
+const deliveriesInput= document.getElementById("deliveries");
+const hoursInput     = document.getElementById("hours");
+const earningsInput  = document.getElementById("earnings");
+const tipsInput      = document.getElementById("tips");
+const addBtn         = document.getElementById("addBtn");
+
+// Set the date field to today by default (nice quality-of-life touch).
+dateInput.value = new Date().toISOString().slice(0, 10);
+
+// Save the current list back into the browser.
+function save() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(shifts));
+}
+
+// Turn a number into a clean money string like "₪1,234.50".
+function money(n) {
+  return "₪" + n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+// ---- Add a new shift when the button is clicked ----
+addBtn.addEventListener("click", function () {
+  const shift = {
+    date:       dateInput.value,
+    deliveries: Number(deliveriesInput.value) || 0,
+    hours:      Number(hoursInput.value) || 0,
+    earnings:   Number(earningsInput.value) || 0,
+    tips:       Number(tipsInput.value) || 0,
+  };
+
+  // Simple validation: we at least need a date.
+  if (!shift.date) {
+    alert("Please choose a date.");
+    return;
+  }
+
+  shifts.push(shift);   // add to the list
+  save();               // store it
+  render();             // redraw the page
+
+  // Clear the number fields so it's ready for the next entry.
+  deliveriesInput.value = "";
+  hoursInput.value = "";
+  earningsInput.value = "";
+  tipsInput.value = "";
+});
+
+// ---- Delete a shift by its position in the array ----
+function deleteShift(index) {
+  shifts.splice(index, 1);  // remove 1 item at that position
+  save();
+  render();
+}
+
+// ---- Draw the summary stat cards ----
+function renderStats() {
+  // Add up every shift using reduce().
+  const totalDeliveries = shifts.reduce((sum, s) => sum + s.deliveries, 0);
+  const totalHours      = shifts.reduce((sum, s) => sum + s.hours, 0);
+  const totalBase       = shifts.reduce((sum, s) => sum + s.earnings, 0);
+  const totalTips       = shifts.reduce((sum, s) => sum + s.tips, 0);
+  const totalEarned     = totalBase + totalTips;
+
+  // Averages — guard against dividing by zero.
+  const perDelivery = totalDeliveries > 0 ? totalEarned / totalDeliveries : 0;
+  const perHour     = totalHours > 0 ? totalEarned / totalHours : 0;
+
+  const cards = [
+    { value: totalDeliveries,        label: "Total deliveries" },
+    { value: totalHours.toFixed(1),  label: "Total hours" },
+    { value: money(totalBase),       label: "Base earnings" },
+    { value: money(totalTips),       label: "Tips" },
+    { value: money(totalEarned),     label: "Total earned" },
+    { value: money(perDelivery),     label: "Avg / delivery" },
+    { value: money(perHour),         label: "Avg / hour" },
+  ];
+
+  document.getElementById("stats").innerHTML = cards.map(c =>
+    `<div class="stat"><div class="value">${c.value}</div><div class="label">${c.label}</div></div>`
+  ).join("");
+}
+
+// ---- Draw a simple bar chart of earnings per shift ----
+function renderChart() {
+  const chart = document.getElementById("chart");
+
+  if (shifts.length === 0) {
+    chart.innerHTML = `<p class="empty">Add a shift to see the chart.</p>`;
+    return;
+  }
+
+  // Find the biggest total so we can scale the bars to fit the height.
+  const max = Math.max(...shifts.map(s => s.earnings + s.tips), 1);
+
+  chart.innerHTML = shifts.map(s => {
+    const total = s.earnings + s.tips;
+    const heightPct = (total / max) * 100;            // bar height as % of tallest
+    const tipPct = total > 0 ? (s.tips / total) * 100 : 0; // tip share inside the bar
+    const dayLabel = s.date.slice(5);                 // show MM-DD
+    return `
+      <div class="bar-col">
+        <div class="bar" style="height:${heightPct}%">
+          <div class="tip-part" style="height:${tipPct}%"></div>
+        </div>
+        <div class="bar-label">${dayLabel}</div>
+      </div>`;
+  }).join("");
+}
+
+// ---- Draw the table of all shifts ----
+function renderTable() {
+  const body = document.getElementById("tableBody");
+
+  if (shifts.length === 0) {
+    body.innerHTML = `<tr><td colspan="7" class="empty">No shifts yet. Add your first one above!</td></tr>`;
+    return;
+  }
+
+  body.innerHTML = shifts.map((s, index) => {
+    const total = s.earnings + s.tips;
+    return `
+      <tr>
+        <td>${s.date}</td>
+        <td class="num">${s.deliveries}</td>
+        <td class="num">${s.hours}</td>
+        <td class="num">${money(s.earnings)}</td>
+        <td class="num">${money(s.tips)}</td>
+        <td class="num">${money(total)}</td>
+        <td class="num"><button class="del-btn" onclick="deleteShift(${index})">Delete</button></td>
+      </tr>`;
+  }).join("");
+}
+
+// ---- Redraw everything on the page ----
+function render() {
+  // Keep shifts sorted by date so the table and chart read left-to-right in time.
+  shifts.sort((a, b) => a.date.localeCompare(b.date));
+  renderStats();
+  renderChart();
+  renderTable();
+}
+
+// Draw the page for the first time when it loads.
+render();
+</script>
+</body>
+</html>
